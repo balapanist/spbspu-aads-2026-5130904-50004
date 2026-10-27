@@ -40,6 +40,7 @@ jobs:
             echo 'Source: `82de5a5c976fd86003393bdab862142304dbafbe`.'
             echo 'Build uses the unchanged repository Makefile.'
             echo 'Unit tests are written by the student.'
+            echo 'All unit tests run natively and under Valgrind. Custom test operator new/delete are preserved; libc allocations remain checked.'
             echo 'Teacher F0 acceptance test is a dry run with Valgrind; it does not test all commands.'
             echo 'Submission branch/content/author validation is outside this workflow.'
             echo 'The S1-before-F0 submission requirement remains unresolved.'
@@ -53,10 +54,20 @@ jobs:
           set -euo pipefail
           make build-khvaevskiy.daniil/F0 2>&1 | tee reports/build.log
 
-      - name: Run student unit tests
+      - name: Run all student unit tests natively with allocation fault injection
         run: |
           set -euo pipefail
-          make test-khvaevskiy.daniil/F0 2>&1 | tee reports/unit.log
+          make test-khvaevskiy.daniil/F0 VALGRIND= 2>&1 | tee reports/unit-native.log
+
+      - name: Run all student unit tests under Valgrind preserving test allocators
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          # Preserve the executable's fault-injection new/delete; still check libc malloc/free.
+          # https://valgrind.org/docs/manual/manual-core.html#opt.soname-synonyms
+          make test-khvaevskiy.daniil/F0 \
+            VALGRIND='--leak-check=full --track-origins=yes --error-exitcode=99 --soname-synonyms=somalloc=nouserintercepts' \
+            2>&1 | tee reports/unit-valgrind.log
 
       - name: Run teacher F0 acceptance dry run with Valgrind
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
