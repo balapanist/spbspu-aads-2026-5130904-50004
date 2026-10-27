@@ -48,6 +48,7 @@ jobs:
           cat "$TEST_DIR/test-lab-F0" | tee reports/teacher-F0-test.txt
 
       - name: Build with teacher Makefile
+        id: build
         run: |
           set -euo pipefail
           make build-khvaevskiy.daniil/F0 2>&1 | tee reports/build.log
@@ -58,6 +59,7 @@ jobs:
           make test-khvaevskiy.daniil/F0 2>&1 | tee reports/unit.log
 
       - name: Run teacher F0 acceptance dry run with Valgrind
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
           test -x "$TEST_DIR/test-lab-F0"
