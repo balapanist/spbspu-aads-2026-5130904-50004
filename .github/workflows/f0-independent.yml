@@ -1,0 +1,73 @@
+name: Independent F0 tests
+run-name: Independent F0 tests — source 82de5a5
+
+on:
+  push:
+    branches: [ci/f0-independent]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  program-tests:
+    name: F0 build, student unit tests, teacher dry run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: volgarenok/cxx-test:latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: source
+    steps:
+      - name: Check out exact F0 source used by PR 126
+        uses: actions/checkout@v4
+        with:
+          ref: 82de5a5c976fd86003393bdab862142304dbafbe
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record source and scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 82de5a5c976fd86003393bdab862142304dbafbe
+          mkdir -p reports
+          git rev-parse HEAD | tee reports/source-sha.txt
+          {
+            echo '## Independent F0 program tests'
+            echo 'Source: `82de5a5c976fd86003393bdab862142304dbafbe`.'
+            echo 'Build uses the unchanged repository Makefile.'
+            echo 'Unit tests are written by the student.'
+            echo 'Teacher F0 acceptance test is a dry run with Valgrind; it does not test all commands.'
+            echo 'Submission branch/content/author validation is outside this workflow.'
+            echo 'The S1-before-F0 submission requirement remains unresolved.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          g++ --version | tee reports/compiler.txt
+          cat "$TEST_DIR/test-lab-F0" | tee reports/teacher-F0-test.txt
+
+      - name: Build with teacher Makefile
+        run: |
+          set -euo pipefail
+          make build-khvaevskiy.daniil/F0 2>&1 | tee reports/build.log
+
+      - name: Run student unit tests
+        run: |
+          set -euo pipefail
+          make test-khvaevskiy.daniil/F0 2>&1 | tee reports/unit.log
+
+      - name: Run teacher F0 acceptance dry run with Valgrind
+        run: |
+          set -euo pipefail
+          test -x "$TEST_DIR/test-lab-F0"
+          test -n "$VALGRIND"
+          "$TEST_DIR/test-lab-F0" khvaevskiy.daniil reports/acceptance.xml 2>&1 | tee reports/acceptance.log
+
+      - name: Upload reports even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-F0-reports-82de5a5
+          path: source/reports/
+          if-no-files-found: error
