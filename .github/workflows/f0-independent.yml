@@ -1,5 +1,5 @@
-name: Independent F0 tests
-run-name: Independent F0 tests — source 82de5a5
+name: Lab testing — independent F0
+run-name: khvaevskiy.daniil/F0
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   program-tests:
-    name: F0 build, student unit tests, teacher dry run
+    name: build / acceptance / unit
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -48,18 +48,18 @@ jobs:
           g++ --version | tee reports/compiler.txt
           cat "$TEST_DIR/test-lab-F0" | tee reports/teacher-F0-test.txt
 
-      - name: Build with teacher Makefile
+      - name: Build
         id: build
         run: |
           set -euo pipefail
           make build-khvaevskiy.daniil/F0 2>&1 | tee reports/build.log
 
-      - name: Run all student unit tests natively with allocation fault injection
+      - name: Unit tests (native)
         run: |
           set -euo pipefail
           make test-khvaevskiy.daniil/F0 VALGRIND= 2>&1 | tee reports/unit-native.log
 
-      - name: Run all student unit tests under Valgrind preserving test allocators
+      - name: Unit tests (Valgrind)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
@@ -69,7 +69,7 @@ jobs:
             VALGRIND='--leak-check=full --track-origins=yes --error-exitcode=99 --soname-synonyms=somalloc=nouserintercepts' \
             2>&1 | tee reports/unit-valgrind.log
 
-      - name: Run teacher F0 acceptance dry run with Valgrind
+      - name: Acceptance
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
